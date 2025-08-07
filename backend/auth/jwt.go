@@ -19,7 +19,9 @@ type Claims struct {
 
 func GenerateToken(userID, username string) (string, error) {
 	Claims := Claims{userID, username, jwt.RegisteredClaims{
+		Issuer:    "igropoisk",
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	}}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims)
 	return token.SignedString(key)
