@@ -12,19 +12,20 @@ var (
 )
 
 type Claims struct {
-	UserId   string `json:"userId"`
+	UserId   int    `json:"userId"`
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(userID, username string) (string, error) {
+func GenerateToken(userID int, username string) (string, error) {
 	Claims := Claims{userID, username, jwt.RegisteredClaims{
 		Issuer:    "igropoisk",
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	}}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims)
-	return token.SignedString(key)
+	t, err := token.SignedString(key)
+	return t, err
 }
 
 func ParseToken(tokenString string) (*Claims, error) {
