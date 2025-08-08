@@ -21,7 +21,7 @@ func main() {
 
 	userRepo := user.NewPostgresRepository(db)
 	userService := user.NewService(userRepo)
-	userRegisterHandler := user.NewRegisterHandler(userService)
+	userHandler := user.NewUserHandler(userService)
 	r := gin.New()
 	f, _ := os.Create("log.txt")
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
@@ -31,7 +31,8 @@ func main() {
 
 	api := r.Group("api")
 	{
-		api.POST("register", userRegisterHandler.HandleRegistration)
+		api.POST("register", userHandler.HandleRegistration)
+		api.POST("login", userHandler.HandleLogin)
 	}
 
 	r.Run("localhost:" + os.Getenv("PORT"))

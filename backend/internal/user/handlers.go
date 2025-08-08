@@ -2,18 +2,17 @@ package user
 
 import (
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 )
 
-type RegisterHandler struct {
-	service *Service
+type UserHandler struct {
+	service Service
 }
 
-func NewRegisterHandler(service *Service) *RegisterHandler {
-	return &RegisterHandler{service: service}
+func NewUserHandler(service Service) *UserHandler {
+	return &UserHandler{service: service}
 }
 
 type request struct {
@@ -21,20 +20,14 @@ type request struct {
 	Password string `json:"password"`
 }
 
-func (r *RegisterHandler) HandleRegistration(c *gin.Context) {
+func (r *UserHandler) HandleRegistration(c *gin.Context) {
 	var req request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
-	if len(req.Username) < 3 || len(req.Username) > 32 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "username must be between 3 and 32 characters long"})
-		return
-	}
-
-	if ok, err := validatePassword(req.Password); !ok {
+	if ok, err := validateRequest(req); !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -48,11 +41,34 @@ func (r *RegisterHandler) HandleRegistration(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
-
-func validatePassword(pass string) (bool, error) {
-	if len(pass) < 8 || len(pass) > 32 {
+func validateRequest(req request) (bool, error) {
+	if len(req.Username) < 3 || len(req.Username) > 32 {
+		return false, errors.New("username must be between 3 and 32 characters long")
+	}
+	if len(req.Password) < 8 || len(req.Password) > 32 {
 		return false, errors.New("password must be between 8 and 32 characters long")
 	}
-
 	return true, nil
+}
+
+func (r *UserHandler) HandleLogin(c *gin.Context) {
+	var req request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if ok, err := validateRequest(req); !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := r.service.Login(req.Username, req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
+
 }

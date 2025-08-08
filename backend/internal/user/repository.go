@@ -8,17 +8,18 @@ import (
 type Repository interface {
 	AddUser(name, passwordHash string) (*User, error)
 	GetUserById(id int) (*User, error)
+	GetUserByName(name string) (*User, error)
 }
 
-type PostgresRepository struct {
+type postgresRepository struct {
 	db *sql.DB
 }
 
-func NewPostgresRepository(db *sql.DB) *PostgresRepository {
-	return &PostgresRepository{db: db}
+func NewPostgresRepository(db *sql.DB) Repository {
+	return &postgresRepository{db: db}
 }
 
-func (p *PostgresRepository) GetUserById(id int) (*User, error) {
+func (p *postgresRepository) GetUserById(id int) (*User, error) {
 	query := "SELECT id,name FROM USERS WHERE ID = $1"
 	user := &User{}
 	row := p.db.QueryRowContext(context.Background(), query, id)
@@ -26,7 +27,7 @@ func (p *PostgresRepository) GetUserById(id int) (*User, error) {
 	return user, err
 }
 
-func (p *PostgresRepository) AddUser(name, passwordHash string) (*User, error) {
+func (p *postgresRepository) AddUser(name, passwordHash string) (*User, error) {
 	query := "INSERT INTO users (name, password_hash) VALUES ($1, $2) RETURNING id, name"
 	user := User{}
 	err := p.db.QueryRowContext(context.Background(), query, name, passwordHash).
@@ -35,4 +36,15 @@ func (p *PostgresRepository) AddUser(name, passwordHash string) (*User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (p *postgresRepository) GetUserByName(name string) (*User, error) {
+	query := "SELECT id, name, password_hash FROM users WHERE name = $1"
+	user := &User{}
+	row := p.db.QueryRowContext(context.Background(), query, name)
+	err := row.Scan(&user.Id, &user.Name, &user.PasswordHash)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
