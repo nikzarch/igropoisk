@@ -3,6 +3,8 @@ package user
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Repository interface {
@@ -33,6 +35,12 @@ func (p *postgresRepository) AddUser(name, passwordHash string) (*User, error) {
 	err := p.db.QueryRowContext(context.Background(), query, name, passwordHash).
 		Scan(&user.Id, &user.Name)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" {
+				return nil, errors.New("user already exists")
+			}
+		}
 		return nil, err
 	}
 	return &user, nil

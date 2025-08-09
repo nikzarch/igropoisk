@@ -3,7 +3,6 @@ package user
 import (
 	"errors"
 	"github.com/gin-gonic/gin"
-	"log"
 	"net/http"
 )
 
@@ -34,8 +33,7 @@ func (r *UserHandler) HandleRegistration(c *gin.Context) {
 
 	token, err := r.service.Register(req.Username, req.Password)
 	if err != nil {
-		log.Println("Unable to register: " + err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to register"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
