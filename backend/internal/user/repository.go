@@ -52,6 +52,9 @@ func (p *postgresRepository) GetUserByName(name string) (*User, error) {
 	row := p.db.QueryRowContext(context.Background(), query, name)
 	err := row.Scan(&user.Id, &user.Name, &user.PasswordHash)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("no such user")
+		}
 		return nil, err
 	}
 	return user, nil
