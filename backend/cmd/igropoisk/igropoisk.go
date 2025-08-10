@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"igropoisk_backend/internal/db"
+	"igropoisk_backend/internal/game"
 	"igropoisk_backend/internal/middleware"
 	"igropoisk_backend/internal/user"
 	"io"
@@ -23,6 +24,10 @@ func main() {
 	userRepo := user.NewPostgresRepository(db)
 	userService := user.NewService(userRepo)
 	userHandler := user.NewHandler(userService)
+
+	gameRepo := game.NewPostgresRepository(db)
+	gameService := game.NewService(gameRepo)
+	gameHandler := game.NewHandler(gameService)
 	r := gin.New()
 	f, _ := os.Create("log.txt")
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
@@ -36,5 +41,11 @@ func main() {
 		api.POST("login", userHandler.HandleLogin)
 	}
 	authorizedApi := r.Group("api", middleware.AuthMiddleware())
+	{
+		authorizedApi.GET("games/:id", gameHandler.GetGameByID)
+		authorizedApi.GET("games", gameHandler.GetAllGames)
+		authorizedApi.POST("games", gameHandler.AddGame)
+		authorizedApi.DELETE("games/:id", gameHandler.DeleteGameByID)
+	}
 	r.Run("localhost:" + os.Getenv("PORT"))
 }
