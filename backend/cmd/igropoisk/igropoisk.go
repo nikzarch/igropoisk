@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"igropoisk_backend/internal/db"
+	"igropoisk_backend/internal/middleware"
 	"igropoisk_backend/internal/user"
 	"io"
 	"log"
@@ -34,6 +35,6 @@ func main() {
 		api.POST("register", userHandler.HandleRegistration)
 		api.POST("login", userHandler.HandleLogin)
 	}
-
+	authorizedApi := r.Group("api", middleware.AuthMiddleware())
 	r.Run("localhost:" + os.Getenv("PORT"))
 }

@@ -6,12 +6,12 @@ import (
 	"net/http"
 )
 
-type UserHandler struct {
+type Handler struct {
 	service Service
 }
 
-func NewUserHandler(service Service) *UserHandler {
-	return &UserHandler{service: service}
+func NewUserHandler(service Service) *Handler {
+	return &Handler{service: service}
 }
 
 type request struct {
@@ -19,7 +19,7 @@ type request struct {
 	Password string `json:"password"`
 }
 
-func (r *UserHandler) HandleRegistration(c *gin.Context) {
+func (r *Handler) HandleRegistration(c *gin.Context) {
 	var req request
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
@@ -49,7 +49,7 @@ func validateRequest(req request) (bool, error) {
 	return true, nil
 }
 
-func (r *UserHandler) HandleLogin(c *gin.Context) {
+func (r *Handler) HandleLogin(c *gin.Context) {
 	var req request
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
