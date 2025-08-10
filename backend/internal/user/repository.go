@@ -1,7 +1,6 @@
 package user
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -24,7 +23,7 @@ func NewPostgresRepository(db *sql.DB) Repository {
 func (p *postgresRepository) GetUserById(id int) (*User, error) {
 	query := "SELECT id,name FROM USERS WHERE ID = $1"
 	user := &User{}
-	row := p.db.QueryRowContext(context.Background(), query, id)
+	row := p.db.QueryRow(query, id)
 	err := row.Scan(&user.Id, &user.Name)
 	return user, err
 }
@@ -32,7 +31,7 @@ func (p *postgresRepository) GetUserById(id int) (*User, error) {
 func (p *postgresRepository) AddUser(name, passwordHash string) (*User, error) {
 	query := "INSERT INTO users (name, password_hash) VALUES ($1, $2) RETURNING id, name"
 	user := User{}
-	err := p.db.QueryRowContext(context.Background(), query, name, passwordHash).
+	err := p.db.QueryRow(query, name, passwordHash).
 		Scan(&user.Id, &user.Name)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -49,7 +48,7 @@ func (p *postgresRepository) AddUser(name, passwordHash string) (*User, error) {
 func (p *postgresRepository) GetUserByName(name string) (*User, error) {
 	query := "SELECT id, name, password_hash FROM users WHERE name = $1"
 	user := &User{}
-	row := p.db.QueryRowContext(context.Background(), query, name)
+	row := p.db.QueryRow(query, name)
 	err := row.Scan(&user.Id, &user.Name, &user.PasswordHash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
