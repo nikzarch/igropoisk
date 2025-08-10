@@ -22,7 +22,7 @@ func main() {
 
 	userRepo := user.NewPostgresRepository(db)
 	userService := user.NewService(userRepo)
-	userHandler := user.NewUserHandler(userService)
+	userHandler := user.NewHandler(userService)
 	r := gin.New()
 	f, _ := os.Create("log.txt")
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
