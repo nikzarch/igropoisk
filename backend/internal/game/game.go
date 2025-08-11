@@ -7,6 +7,7 @@ type Game struct {
 	Name         string
 	AvgRating    *float64 // may be nil
 	ReviewsCount int
+	Description  string
 }
 
 func (g *Game) Average() *float64 {

@@ -48,7 +48,8 @@ func (h *Handler) GetAllGames(c *gin.Context) {
 
 func (h *Handler) AddGame(c *gin.Context) {
 	var req struct {
-		Name string `json:"name"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
