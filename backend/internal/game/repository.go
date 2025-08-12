@@ -81,7 +81,7 @@ func (p *PostgresRepository) AddGame(game *Game) error {
 }
 
 func (p *PostgresRepository) RemoveGameById(id int) error {
-	query := "DELETE FROM games WHERE id = $1"
+	query := "DELETE FROM games WHERE id = $1 CASCADE" // so that reviews will be deleted too
 	_, err := p.db.Exec(query, id)
 	if err != nil {
 		return fmt.Errorf("RemoveGameById: %w", err)
