@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -56,7 +55,6 @@ func (h *Handler) AddGame(c *gin.Context) {
 		return
 	}
 	game := Game{Name: req.Name}
-	fmt.Println(req.Name)
 	err := h.service.AddGame(game)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
