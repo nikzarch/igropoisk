@@ -26,7 +26,7 @@ func (r *Handler) HandleRegistration(c *gin.Context) {
 		return
 	}
 
-	if ok, err := validateRequest(req); !ok {
+	if err := validateRequest(req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -39,14 +39,14 @@ func (r *Handler) HandleRegistration(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
-func validateRequest(req request) (bool, error) {
+func validateRequest(req request) error {
 	if len(req.Username) < 3 || len(req.Username) > 32 {
-		return false, errors.New("username must be between 3 and 32 characters long")
+		return errors.New("username must be between 3 and 32 characters long")
 	}
 	if len(req.Password) < 8 || len(req.Password) > 32 {
-		return false, errors.New("password must be between 8 and 32 characters long")
+		return errors.New("password must be between 8 and 32 characters long")
 	}
-	return true, nil
+	return nil
 }
 
 func (r *Handler) HandleLogin(c *gin.Context) {
@@ -56,7 +56,7 @@ func (r *Handler) HandleLogin(c *gin.Context) {
 		return
 	}
 
-	if ok, err := validateRequest(req); !ok {
+	if err := validateRequest(req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
