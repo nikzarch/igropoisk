@@ -7,6 +7,7 @@ import (
 	"igropoisk_backend/internal/db"
 	"igropoisk_backend/internal/game"
 	"igropoisk_backend/internal/middleware"
+	"igropoisk_backend/internal/review"
 	"igropoisk_backend/internal/user"
 	"io"
 	"log"
@@ -28,6 +29,10 @@ func main() {
 	gameRepo := game.NewPostgresRepository(db)
 	gameService := game.NewService(gameRepo)
 	gameHandler := game.NewHandler(gameService)
+
+	reviewRepo := review.NewPostgresRepository(db)
+	reviewService := review.NewService(reviewRepo, gameService)
+	reviewHandler := review.NewHandler(reviewService)
 	r := gin.New()
 	f, _ := os.Create("log.txt")
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
@@ -39,6 +44,7 @@ func main() {
 	{
 		api.POST("register", userHandler.HandleRegistration)
 		api.POST("login", userHandler.HandleLogin)
+		api.GET("games/:id/reviews", reviewHandler.GetReviewsByGameId)
 	}
 	authorizedApi := r.Group("api", middleware.AuthMiddleware())
 	{
@@ -46,6 +52,9 @@ func main() {
 		authorizedApi.GET("games", gameHandler.GetAllGames)
 		authorizedApi.POST("games", gameHandler.AddGame)
 		authorizedApi.DELETE("games/:id", gameHandler.DeleteGameByID)
+
+		authorizedApi.POST("games/:id/reviews", reviewHandler.AddReview)
 	}
+
 	r.Run("localhost:" + os.Getenv("PORT"))
 }
