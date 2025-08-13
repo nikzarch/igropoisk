@@ -22,6 +22,13 @@ func NewService(repo Repository, gameService game.Service) Service {
 }
 
 func (s *service) AddReview(request AddReviewRequest) error {
+	exists, err := s.repo.IsGameReviewedByUserId(request.User.Id, request.GameId)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("review on this game by user %s already exists", request.User.Name)
+	}
 	review, err := NewReview(request.GameId, &request.User, request.Score, request.Content)
 	if err != nil {
 		return fmt.Errorf("AddReview: %w", err)

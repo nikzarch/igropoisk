@@ -11,6 +11,7 @@ type Repository interface {
 	RemoveReviewById(id int) error
 	GetReviewById(id int) (*Review, error)
 	GetReviewsByGameId(id int) ([]*Review, error)
+	IsGameReviewedByUserId(userId, gameId int) (bool, error)
 }
 
 type PostgresRepository struct {
@@ -67,4 +68,14 @@ func (p *PostgresRepository) GetReviewsByGameId(id int) ([]*Review, error) {
 
 	}
 	return reviews, nil
+}
+
+func (p *PostgresRepository) IsGameReviewedByUserId(userId, gameId int) (bool, error) {
+	query := "SELECT EXISTS(SELECT 1 FROM reviews WHERE user_id = $1 AND game_id = $2)"
+	var exists bool
+	err := p.db.QueryRow(query, userId, gameId).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("GetReviewsByUserId: %w", err)
+	}
+	return exists, nil
 }

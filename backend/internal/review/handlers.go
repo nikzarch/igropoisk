@@ -27,6 +27,9 @@ func validateRequest(req AddReviewRequest) error {
 	if req.Score <= 0 || req.Score > 10 {
 		return errors.New("Score must be between 0 and 10")
 	}
+	if req.GameId <= 0 {
+		return errors.New("invalid game id")
+	}
 	return nil
 }
 
