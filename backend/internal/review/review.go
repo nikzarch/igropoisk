@@ -7,11 +7,11 @@ import (
 )
 
 type Review struct {
-	ID          int
-	GameId      int
-	User        *user.User
-	Score       int
-	Description sql.NullString
+	Id          int            `json:"id"`
+	GameId      int            `json:"game_id"`
+	User        *user.User     `json:"user"`
+	Score       int            `json:"score"`
+	Description sql.NullString `json:"description"`
 }
 
 func NewReview(gameId int, user *user.User, score int, description string) (*Review, error) {

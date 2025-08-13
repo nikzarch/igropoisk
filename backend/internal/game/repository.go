@@ -25,7 +25,7 @@ func NewPostgresRepository(db *sql.DB) *PostgresRepository {
 func (p *PostgresRepository) GetGameById(id int) (*Game, error) {
 	query := "SELECT id, name, avg_rating, reviews_count FROM games WHERE id = $1"
 	game := &Game{}
-	err := p.db.QueryRow(query, id).Scan(&game.ID, &game.Name, &game.AvgRating, &game.ReviewsCount)
+	err := p.db.QueryRow(query, id).Scan(&game.Id, &game.Name, &game.AvgRating, &game.ReviewsCount)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("no such game")
@@ -39,7 +39,7 @@ func (p *PostgresRepository) GetGameById(id int) (*Game, error) {
 func (p *PostgresRepository) GetGameByName(name string) (*Game, error) {
 	query := "SELECT id, name, avg_rating, reviews_count FROM games WHERE name = $1"
 	game := &Game{}
-	err := p.db.QueryRow(query, name).Scan(&game.ID, &game.Name, &game.AvgRating, &game.ReviewsCount)
+	err := p.db.QueryRow(query, name).Scan(&game.Id, &game.Name, &game.AvgRating, &game.ReviewsCount)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("no such game")
@@ -62,7 +62,7 @@ func (p *PostgresRepository) GetAllGames() ([]Game, error) {
 	for rows.Next() {
 		var game Game
 
-		if err := rows.Scan(&game.ID, &game.Name, &game.AvgRating, &game.ReviewsCount); err != nil {
+		if err := rows.Scan(&game.Id, &game.Name, &game.AvgRating, &game.ReviewsCount); err != nil {
 			return nil, fmt.Errorf("GetAllGames Scan: %w", err)
 		}
 
@@ -76,12 +76,12 @@ func (p *PostgresRepository) GetAllGames() ([]Game, error) {
 
 func (p *PostgresRepository) AddGame(game *Game) error {
 	query := `INSERT INTO games (name) VALUES ($1) RETURNING id`
-	err := p.db.QueryRow(query, game.Name).Scan(&game.ID)
+	err := p.db.QueryRow(query, game.Name).Scan(&game.Id)
 	return err
 }
 
 func (p *PostgresRepository) RemoveGameById(id int) error {
-	query := "DELETE FROM games WHERE id = $1 CASCADE" // so that reviews will be deleted too
+	query := "DELETE FROM games WHERE id = $1 "
 	_, err := p.db.Exec(query, id)
 	if err != nil {
 		return fmt.Errorf("RemoveGameById: %w", err)

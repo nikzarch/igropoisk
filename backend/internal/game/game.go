@@ -3,7 +3,7 @@ package game
 const MinReviews = 3
 
 type Game struct {
-	ID           int
+	Id           int
 	Name         string
 	AvgRating    *float64 // may be nil
 	ReviewsCount int
