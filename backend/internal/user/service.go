@@ -37,11 +37,8 @@ func (s *service) Login(name, password string) (token string, err error) {
 	if err != nil {
 		return "", err
 	}
-	passwordHash, hashErr := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if hashErr != nil {
-		return "", hashErr
-	}
-	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(user.PasswordHash)) != nil {
+
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) != nil {
 		return "", errors.New("invalid username or password")
 	}
 

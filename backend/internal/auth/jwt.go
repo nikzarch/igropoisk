@@ -20,12 +20,12 @@ type Claims struct {
 }
 
 func GenerateToken(userID int, username string) (string, error) {
-	Claims := Claims{userID, username, jwt.RegisteredClaims{
+	claims := Claims{userID, username, jwt.RegisteredClaims{
 		Issuer:    "igropoisk",
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	}}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	t, err := token.SignedString(key)
 	return t, err
 }

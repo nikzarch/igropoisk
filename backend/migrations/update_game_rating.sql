@@ -17,6 +17,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_update_rating
-AFTER INSERT OR UPDATE ON reviews
+AFTER INSERT OR UPDATE OR DELETE ON reviews
 FOR EACH ROW
 EXECUTE FUNCTION update_game_rating();

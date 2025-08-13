@@ -37,6 +37,7 @@ func main() {
 	reviewHandler := review.NewHandler(reviewService)
 	r := gin.New()
 	f, _ := os.Create("log.txt")
+	defer f.Close()
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
 	r.Use(gin.LoggerWithWriter(gin.DefaultWriter))
 	r.Use(gin.Recovery())
