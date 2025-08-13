@@ -4,6 +4,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"igropoisk_backend/internal/auth"
 	"igropoisk_backend/internal/db"
 	"igropoisk_backend/internal/game"
 	"igropoisk_backend/internal/middleware"
@@ -19,6 +20,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("Error loading .env file")
 	}
+	auth.Init()
 	db := db.GetConnection()
 	defer db.Close()
 

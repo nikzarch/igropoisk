@@ -7,9 +7,11 @@ import (
 	"time"
 )
 
-var (
+var key []byte
+
+func Init() {
 	key = []byte(os.Getenv("SECRET_KEY"))
-)
+}
 
 type Claims struct {
 	UserId   int    `json:"userId"`
