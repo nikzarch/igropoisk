@@ -1,0 +1,1 @@
+SELECT id, name FROM genres WHERE name = $1

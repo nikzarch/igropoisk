@@ -1,0 +1,1 @@
+SELECT id,name,avg_rating,reviews_count,description,image_url,genre_id FROM games;
