@@ -1,6 +1,7 @@
 package game
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -22,13 +23,9 @@ func (h *Handler) GetGameByID(c *gin.Context) {
 		return
 	}
 
-	game, err := h.service.GetGameById(id)
+	game, err := h.service.GetGameByID(c.Request.Context(), id)
 	if err != nil {
-		if err.Error() == "no such game" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "game not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -36,7 +33,7 @@ func (h *Handler) GetGameByID(c *gin.Context) {
 }
 
 func (h *Handler) GetAllGames(c *gin.Context) {
-	games, err := h.service.GetAllGames()
+	games, err := h.service.GetAllGames(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get games"})
 		return
@@ -45,22 +42,44 @@ func (h *Handler) GetAllGames(c *gin.Context) {
 	c.JSON(http.StatusOK, games)
 }
 
+type AddGameRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	ImageURL    string `json:"image_url"`
+	Genre       string `json:"genre"`
+}
+
 func (h *Handler) AddGame(c *gin.Context) {
-	var req struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
+	var req AddGameRequest
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	game := Game{Name: req.Name}
-	err := h.service.AddGame(game)
+	if err := validateAddGameRequest(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.service.AddGame(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.Status(http.StatusCreated)
+}
+
+func validateAddGameRequest(request AddGameRequest) (err error) {
+	switch {
+	case len(request.Name) == 0:
+		err = errors.New("name is required")
+	case len(request.Description) == 0:
+		err = errors.New("description is required")
+	case len(request.ImageURL) == 0:
+		err = errors.New("image_url is required")
+	case len(request.Genre) == 0:
+		err = errors.New("genre is required")
+	}
+	return err
 }
 
 func (h *Handler) DeleteGameByID(c *gin.Context) {
@@ -71,7 +90,7 @@ func (h *Handler) DeleteGameByID(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteGameById(id)
+	err = h.service.DeleteGameByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete game"})
 		return

@@ -1,19 +1,30 @@
 package game
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"github.com/jackc/pgx/v5"
+	"igropoisk_backend/internal/game/genre"
+	"igropoisk_backend/internal/logger"
+	"igropoisk_backend/internal/middleware"
 	"strings"
 )
 
 type Service interface {
-	AddGame(Game) error
-	DeleteGameById(id int) error
-	GetGameById(id int) (*Game, error)
-	GetGameByName(name string) (*Game, error)
-	GetAllGames() ([]Game, error)
+	AddGame(ctx context.Context, request AddGameRequest) error
+	DeleteGameByID(ctx context.Context, id int) error
+	GetGameByID(ctx context.Context, id int) (*Game, error)
+	GetGameByName(ctx context.Context, name string) (*Game, error)
+	GetAllGames(ctx context.Context) ([]Game, error)
 }
 type service struct {
-	repo Repository
+	gameRepo  Repository
+	genreRepo genre.Repository
+}
+
+func NewService(gameRepo Repository, genreRepo genre.Repository) Service {
+	return &service{gameRepo: gameRepo, genreRepo: genreRepo}
 }
 
 func validateGame(game Game) (bool, error) {
@@ -26,44 +37,127 @@ func validateGame(game Game) (bool, error) {
 	if len([]rune(game.Name)) > 100 {
 		return false, errors.New("game name is too long")
 	}
+	if len(game.ImageURL) == 0 {
+		return false, errors.New("game image url is empty")
+	}
 	return true, nil
 }
 
-func (s *service) AddGame(game Game) error {
+func (s *service) AddGame(ctx context.Context, request AddGameRequest) error {
+	genre, err := s.genreRepo.GetGenreByName(ctx, request.Genre)
+	if err != nil {
+		fmt.Println(err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			genre, err = s.genreRepo.AddGenre(ctx, request.Genre)
+			if err != nil {
+				logger.Logger.Error(
+					"Failed to add genre",
+					"genre_name", request.Genre,
+					"user_id", ctx.Value(middleware.UserIDKey),
+					"error", err,
+				)
+				return errors.New("failed to add a new genre")
+			}
+		} else {
+			logger.Logger.Error(
+				"Failed to find genre",
+				"genre_name", request.Genre,
+				"user_id", ctx.Value(middleware.UserIDKey),
+				"error", err,
+			)
+			return errors.New("failed to find a genre")
+		}
+	}
+
+	var game Game = Game{Name: request.Name, Description: request.Description, ImageURL: request.ImageURL, Genre: *genre}
 
 	if valid, err := validateGame(game); !valid {
 		return err
 	}
-	err := s.repo.AddGame(&game)
-	return err
+
+	name := strings.TrimSpace(game.Name)
+	if len(name) > 0 {
+		name = strings.ToLower(name)
+		name = strings.ToUpper(string(name[0])) + name[1:]
+	}
+	game.Name = name
+	err = s.gameRepo.AddGame(ctx, &game)
+	if err != nil {
+		logger.Logger.Error(
+			"Failed to add a new game",
+			"game_id", game.ID,
+			"game_name", game.Name,
+			"user_id", ctx.Value(middleware.UserIDKey),
+			"error", err,
+		)
+		return errors.New("Failed to add a new game")
+	}
+	return nil
 }
 
-func (s *service) DeleteGameById(id int) error {
+func (s *service) DeleteGameByID(ctx context.Context, id int) error {
+
 	if id <= 0 {
+		logger.Logger.Error("Invalid game id",
+			"game_id", id,
+			"user_id", ctx.Value(middleware.UserIDKey),
+		)
 		return errors.New("id must be greater than zero")
 	}
-	err := s.repo.RemoveGameById(id)
-	return err
+	err := s.gameRepo.RemoveGameByID(ctx, id)
+	if err != nil {
+		logger.Logger.Error("Failed to remove a game",
+			"game_id", id,
+			"user_id", ctx.Value(middleware.UserIDKey),
+			"error", err,
+		)
+		return errors.New("failed to remove a game")
+	}
+	return nil
 }
 
-func (s *service) GetGameById(id int) (*Game, error) {
+func (s *service) GetGameByID(ctx context.Context, id int) (*Game, error) {
 	if id <= 0 {
+		logger.Logger.Error("Invalid game id",
+			"game_id", id,
+			"user_id", ctx.Value(middleware.UserIDKey),
+		)
 		return nil, errors.New("id must be greater than zero")
 	}
-	game, err := s.repo.GetGameById(id)
-	return game, err
+	game, err := s.gameRepo.GetGameByID(ctx, id)
+	if err != nil {
+		logger.Logger.Error("Failed to get a game",
+			"game_id", id,
+			"user_id", ctx.Value(middleware.UserIDKey),
+			"error", err)
+		return nil, errors.New("failed to get a game")
+	}
+	return game, nil
 }
 
-func (s *service) GetGameByName(name string) (*Game, error) {
-	game, err := s.repo.GetGameByName(name)
-	return game, err
+func (s *service) GetGameByName(ctx context.Context, name string) (*Game, error) {
+	if name == "" {
+		logger.Logger.Error("Invalid game name",
+			"game_name", name,
+			"user_id", ctx.Value(middleware.UserIDKey))
+	}
+	game, err := s.gameRepo.GetGameByName(ctx, name)
+	if err != nil {
+		logger.Logger.Error("Failed to get a game",
+			"game_name", name,
+			"error", err)
+		return nil, errors.New("Failed to get a game")
+	}
+	return game, nil
 }
 
-func (s *service) GetAllGames() ([]Game, error) {
-	games, err := s.repo.GetAllGames()
-	return games, err
-}
-
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func (s *service) GetAllGames(ctx context.Context) ([]Game, error) {
+	games, err := s.gameRepo.GetAllGames(ctx)
+	if err != nil {
+		logger.Logger.Error("Failed to get all games",
+			"user_id", ctx.Value(middleware.UserIDKey),
+			"error", err)
+		return nil, errors.New("Failed to get all games")
+	}
+	return games, nil
 }

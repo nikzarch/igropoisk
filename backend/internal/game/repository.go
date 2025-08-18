@@ -1,58 +1,68 @@
 package game
 
 import (
-	"database/sql"
-	"errors"
+	"context"
+	_ "embed"
 	"fmt"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"igropoisk_backend/internal/game/genre"
 )
 
+//go:embed queries/add_game.sql
+var addGameSQL string
+
+//go:embed queries/remove_game.sql
+var removeGameSQL string
+
+//go:embed queries/get_game_by_id.sql
+var getGameByIDSQL string
+
+//go:embed queries/get_game_by_name.sql
+var getGameByNameSQL string
+
+//go:embed queries/get_all_games.sql
+var getAllGamesSQL string
+
 type Repository interface {
-	AddGame(game *Game) error
-	RemoveGameById(id int) error
-	GetGameById(id int) (*Game, error)
-	GetAllGames() ([]Game, error)
-	GetGameByName(name string) (*Game, error)
+	AddGame(ctx context.Context, game *Game) error
+	RemoveGameByID(ctx context.Context, id int) error
+	GetGameByID(ctx context.Context, id int) (*Game, error)
+	GetAllGames(ctx context.Context) ([]Game, error)
+	GetGameByName(ctx context.Context, name string) (*Game, error)
 }
 
 type PostgresRepository struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
 
-func NewPostgresRepository(db *sql.DB) *PostgresRepository {
-	return &PostgresRepository{db: db}
+func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
+	return &PostgresRepository{pool: pool}
 }
 
-func (p *PostgresRepository) GetGameById(id int) (*Game, error) {
-	query := "SELECT id, name, avg_rating, reviews_count FROM games WHERE id = $1"
+func (p *PostgresRepository) GetGameByID(ctx context.Context, id int) (*Game, error) {
 	game := &Game{}
-	err := p.db.QueryRow(query, id).Scan(&game.Id, &game.Name, &game.AvgRating, &game.ReviewsCount)
+	err := p.pool.QueryRow(ctx, getGameByIDSQL, id).Scan(
+		&game.ID, &game.Name, &game.AvgRating, &game.ReviewsCount,
+	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("no such game")
-		}
-		return nil, fmt.Errorf("GetGameById: %w", err)
+		return nil, fmt.Errorf("GetGameByID: %w", err)
 	}
-
 	return game, nil
 }
 
-func (p *PostgresRepository) GetGameByName(name string) (*Game, error) {
-	query := "SELECT id, name, avg_rating, reviews_count FROM games WHERE name = $1"
+func (p *PostgresRepository) GetGameByName(ctx context.Context, name string) (*Game, error) {
 	game := &Game{}
-	err := p.db.QueryRow(query, name).Scan(&game.Id, &game.Name, &game.AvgRating, &game.ReviewsCount)
+	err := p.pool.QueryRow(ctx, getGameByNameSQL, name).Scan(
+		&game.ID, &game.Name, &game.AvgRating, &game.ReviewsCount,
+	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("no such game")
-		}
 		return nil, fmt.Errorf("GetGameByName: %w", err)
 	}
-
 	return game, nil
 }
 
-func (p *PostgresRepository) GetAllGames() ([]Game, error) {
-	query := "SELECT id, name, avg_rating, reviews_count FROM games"
-	rows, err := p.db.Query(query)
+func (p *PostgresRepository) GetAllGames(ctx context.Context) ([]Game, error) {
+	rows, err := p.pool.Query(ctx, getAllGamesSQL)
 	if err != nil {
 		return nil, fmt.Errorf("GetAllGames: %w", err)
 	}
@@ -60,31 +70,37 @@ func (p *PostgresRepository) GetAllGames() ([]Game, error) {
 
 	var games []Game
 	for rows.Next() {
-		var game Game
-
-		if err := rows.Scan(&game.Id, &game.Name, &game.AvgRating, &game.ReviewsCount); err != nil {
+		var g Game
+		var genre genre.Genre
+		if err := rows.Scan(
+			&g.ID,
+			&g.Name,
+			&g.AvgRating,
+			&g.ReviewsCount,
+			&g.Description,
+			&g.ImageURL,
+			&genre.ID,
+			&genre.Name,
+		); err != nil {
 			return nil, fmt.Errorf("GetAllGames Scan: %w", err)
 		}
-
-		games = append(games, game)
+		g.Genre = genre
+		games = append(games, g)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("GetAllGames rows: %w", err)
 	}
 	return games, nil
 }
-
-func (p *PostgresRepository) AddGame(game *Game) error {
-	query := `INSERT INTO games (name) VALUES ($1) RETURNING id`
-	err := p.db.QueryRow(query, game.Name).Scan(&game.Id)
+func (p *PostgresRepository) AddGame(ctx context.Context, game *Game) error {
+	_, err := p.pool.Exec(ctx, addGameSQL, game.Name, game.Description, game.ImageURL, game.Genre.ID)
 	return err
 }
 
-func (p *PostgresRepository) RemoveGameById(id int) error {
-	query := "DELETE FROM games WHERE id = $1 "
-	_, err := p.db.Exec(query, id)
+func (p *PostgresRepository) RemoveGameByID(ctx context.Context, id int) error {
+	_, err := p.pool.Exec(ctx, removeGameSQL, id)
 	if err != nil {
-		return fmt.Errorf("RemoveGameById: %w", err)
+		return fmt.Errorf("RemoveGameByID: %w", err)
 	}
 	return nil
 }

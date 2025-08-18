@@ -1,11 +1,15 @@
 package middleware
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"igropoisk_backend/internal/auth"
 	"net/http"
 	"strings"
 )
+
+const UserIDKey = "userID"
+const UserNameKey = "username"
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -29,8 +33,9 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		c.Set("user_id", claims.UserId)
-		c.Set("username", claims.Username)
+		ctx := context.WithValue(c.Request.Context(), UserIDKey, claims.UserId)
+		ctx = context.WithValue(ctx, UserNameKey, claims.Username)
+		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
 	}
