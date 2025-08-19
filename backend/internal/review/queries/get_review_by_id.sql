@@ -1,0 +1,1 @@
+SELECT id,game_id,user_id,rating,description FROM REVIEWS WHERE id = $1

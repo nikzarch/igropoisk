@@ -3,6 +3,7 @@ package review
 import (
 	"errors"
 	"github.com/gin-gonic/gin"
+	"igropoisk_backend/internal/middleware"
 	"igropoisk_backend/internal/user"
 	"net/http"
 	"strconv"
@@ -10,8 +11,8 @@ import (
 
 type AddReviewRequest struct {
 	Content string    `json:"content"`
-	GameId  int       `json:"-"`
-	Score   int       `json:"Score"`
+	GameID  int       `json:"-"`
+	Rating  int       `json:"rating"`
 	User    user.User `json:"-"`
 }
 
@@ -24,35 +25,35 @@ func NewHandler(service Service) *Handler {
 }
 
 func validateRequest(req AddReviewRequest) error {
-	if req.Score <= 0 || req.Score > 10 {
-		return errors.New("Score must be between 0 and 10")
-	}
-	if req.GameId <= 0 {
-		return errors.New("invalid game id")
+	if req.Rating <= 0 || req.Rating > 10 {
+		return errors.New("Rating must be between 0 and 10")
 	}
 	return nil
 }
 
 func (h *Handler) AddReview(c *gin.Context) {
-	req := new(AddReviewRequest)
-	if err := c.BindJSON(req); err != nil {
+	var req AddReviewRequest
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if err := validateRequest(req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := validateRequest(*req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	userID, ok := c.Request.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user id not found"})
 	}
-	userId, _ := c.Get("user_id")
-	username, _ := c.Get("username")
-	req.User = user.User{Id: userId.(int), Name: username.(string)}
+	username, _ := c.Request.Context().Value(middleware.UserNameKey).(string)
+	req.User = user.User{ID: userID, Name: username}
 	gameID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid game ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid game ID"})
 		return
 	}
-	req.GameId = gameID
-	err = h.reviewService.AddReview(*req)
+	req.GameID = gameID
+	err = h.reviewService.AddReview(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -60,17 +61,16 @@ func (h *Handler) AddReview(c *gin.Context) {
 	c.Status(http.StatusCreated)
 }
 
-func (h *Handler) GetReviewsByGameId(c *gin.Context) {
+func (h *Handler) GetReviewsByGameID(c *gin.Context) {
 	gameId, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid game ID"})
 		return
 	}
-	var reviews []*Review
-	reviews, err = h.reviewService.GetReviewsByGameId(gameId)
+	reviews, err := h.reviewService.GetReviewsByGameID(c.Request.Context(), gameId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, reviews)
+	c.JSON(http.StatusOK, gin.H{"reviews": reviews})
 }

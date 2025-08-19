@@ -1,0 +1,1 @@
+SELECT EXISTS(SELECT 1 FROM reviews WHERE user_id = $1 AND game_id = $2)

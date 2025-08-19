@@ -1,81 +1,103 @@
 package review
 
 import (
-	"database/sql"
+	"context"
+	_ "embed"
+	"errors"
 	"fmt"
-	"igropoisk_backend/internal/user"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+//go:embed queries/add_review.sql
+var addReviewSQL string
+
+//go:embed queries/remove_review_by_id.sql
+var removeReviewByIDSQL string
+
+//go:embed queries/get_review_by_id.sql
+var getReviewByIDSQL string
+
+//go:embed queries/get_reviews_by_game_id.sql
+var getReviewByGameIDSQL string
+
+//go:embed queries/is_game_reviewed_by_user_id.sql
+var isGameReviwedByUserIDSQL string
+
 type Repository interface {
-	AddReview(Review) error
-	RemoveReviewById(id int) error
-	GetReviewById(id int) (*Review, error)
-	GetReviewsByGameId(id int) ([]*Review, error)
-	IsGameReviewedByUserId(userId, gameId int) (bool, error)
+	AddReview(ctx context.Context, review Review) error
+	RemoveReviewByID(ctx context.Context, id int) error
+	GetReviewByID(ctx context.Context, id int) (*Review, error)
+	GetReviewsByGameID(ctx context.Context, id int) ([]Review, error)
+	IsGameReviewedByUserID(ctx context.Context, userId, gameId int) (bool, error)
 }
 
 type PostgresRepository struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
 
-func NewPostgresRepository(db *sql.DB) Repository {
-	return &PostgresRepository{db: db}
+func NewPostgresRepository(pool *pgxpool.Pool) Repository {
+	return &PostgresRepository{pool: pool}
 }
 
-func (p *PostgresRepository) AddReview(review Review) error {
-	query := "INSERT INTO REVIEWS(game_id,rating,description,user_id) VALUES ($1,$2,$3,$4);"
-	_, err := p.db.Exec(query, review.GameId, review.Score, review.Description, review.User.Id)
+func (p *PostgresRepository) AddReview(ctx context.Context, review Review) error {
+	_, err := p.pool.Exec(ctx, addReviewSQL, review.GameID, review.UserID, review.Rating, review.Description)
 	if err != nil {
-		return err
+		return fmt.Errorf("AddReview: %w", err)
 	}
 	return nil
 }
 
-func (p *PostgresRepository) RemoveReviewById(id int) error {
-	query := "DELETE FROM reviews WHERE id = $1"
-	_, err := p.db.Exec(query, id)
+func (p *PostgresRepository) RemoveReviewByID(ctx context.Context, id int) error {
+	_, err := p.pool.Exec(ctx, removeReviewByIDSQL, id)
 	if err != nil {
-		return fmt.Errorf("RemoveReviewById: %w", err)
+		return fmt.Errorf("RemoveReviewByID: %w", err)
 	}
 	return nil
 }
 
-func (p *PostgresRepository) GetReviewById(id int) (*Review, error) {
-	query := "SELECT id,game_id,description,user_id FROM REVIEWS WHERE id = $1"
-	row := p.db.QueryRow(query, id)
-	review := Review{User: &user.User{}}
-	err := row.Scan(&review.Id, &review.GameId, &review.Score, &review.Description, &review.User.Id)
+func (p *PostgresRepository) GetReviewByID(ctx context.Context, id int) (*Review, error) {
+	row := p.pool.QueryRow(ctx, getReviewByIDSQL, id)
+	review := Review{}
+	err := row.Scan(&review.ID, &review.GameID, &review.UserID, &review.Rating, &review.Description)
 	if err != nil {
-		return nil, fmt.Errorf("GetReviewById: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("GetReviewByID: %w", err)
 	}
 	return &review, nil
 }
 
-func (p *PostgresRepository) GetReviewsByGameId(id int) ([]*Review, error) {
-	query := "SELECT id,game_id,rating,description,user_id FROM REVIEWS WHERE game_id = $1"
-	rows, err := p.db.Query(query, id)
+func (p *PostgresRepository) GetReviewsByGameID(ctx context.Context, id int) ([]Review, error) {
+	rows, err := p.pool.Query(ctx, getReviewByGameIDSQL, id)
 	if err != nil {
-		return nil, fmt.Errorf("GetReviewsByGame: %w", err)
+		return nil, fmt.Errorf("GetReviewsByGameID: %w", err)
 	}
-	reviews := make([]*Review, 0)
+	defer rows.Close()
+	var reviews []Review
 	for rows.Next() {
-		review := Review{User: &user.User{}}
-		err := rows.Scan(&review.Id, &review.GameId, &review.Score, &review.Description, &review.User.Id)
-		if err != nil {
-			return nil, fmt.Errorf("GetReviewsByGame: %w", err)
+		review := Review{}
+		if err := rows.Scan(&review.ID, &review.GameID, &review.UserID, &review.Rating, &review.Description); err != nil {
+			return nil, fmt.Errorf("GetReviewsByGameID: %w", err)
 		}
-		reviews = append(reviews, &review)
-
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("GetReviewsByGameID rows: %w", err)
+		}
+		reviews = append(reviews, review)
 	}
 	return reviews, nil
 }
 
-func (p *PostgresRepository) IsGameReviewedByUserId(userId, gameId int) (bool, error) {
-	query := "SELECT EXISTS(SELECT 1 FROM reviews WHERE user_id = $1 AND game_id = $2)"
+func (p *PostgresRepository) IsGameReviewedByUserID(ctx context.Context, userId, gameId int) (bool, error) {
 	var exists bool
-	err := p.db.QueryRow(query, userId, gameId).Scan(&exists)
+	err := p.pool.QueryRow(ctx, isGameReviwedByUserIDSQL, userId, gameId).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("GetReviewsByUserId: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("IsGameReviewedByUserID: %w", err)
 	}
 	return exists, nil
 }

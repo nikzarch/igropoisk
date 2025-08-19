@@ -3,22 +3,21 @@ package review
 import (
 	"database/sql"
 	"errors"
-	"igropoisk_backend/internal/user"
 )
 
 type Review struct {
-	Id          int            `json:"id"`
-	GameId      int            `json:"game_id"`
-	User        *user.User     `json:"user"`
-	Score       int            `json:"score"`
+	ID          int            `json:"id"`
+	GameID      int            `json:"game_id"`
+	UserID      int            `json:"user_id"`
+	Rating      int            `json:"rating"`
 	Description sql.NullString `json:"description"`
 }
 
-func NewReview(gameId int, user *user.User, score int, description string) (*Review, error) {
-	if score <= 0 || score > 10 {
-		return nil, errors.New("Score must be between 0 and 10")
+func NewReview(gameID, userID, rating int, description string) (*Review, error) {
+	if rating <= 0 || rating > 10 {
+		return nil, errors.New("Rating must be between 0 and 10")
 	}
-	review := &Review{GameId: gameId, User: user, Score: score}
+	review := &Review{GameID: gameID, UserID: userID, Rating: rating}
 	review.Description = sql.NullString{String: description, Valid: true}
 	return review, nil
 }

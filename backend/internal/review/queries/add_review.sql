@@ -1,0 +1,1 @@
+INSERT INTO reviews(game_id,user_id,rating,description) VALUES ($1,$2,$3,$4)
