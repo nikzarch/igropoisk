@@ -39,7 +39,7 @@ func (h *Handler) GetAllGames(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, games)
+	c.JSON(http.StatusOK, gin.H{"games": games})
 }
 
 type AddGameRequest struct {

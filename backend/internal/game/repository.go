@@ -41,8 +41,15 @@ func NewPostgresRepository(pool *pgxpool.Pool) Repository {
 
 func (p *PostgresRepository) GetGameByID(ctx context.Context, id int) (*Game, error) {
 	game := &Game{}
+	genre := &genre.Genre{}
 	err := p.pool.QueryRow(ctx, getGameByIDSQL, id).Scan(
-		&game.ID, &game.Name, &game.AvgRating, &game.ReviewsCount,
+		&game.ID,
+		&game.Name,
+		&game.AvgRating,
+		&game.ReviewsCount,
+		&game.Description,
+		&game.ImageURL,
+		&genre.ID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("GetGameByID: %w", err)
@@ -52,9 +59,17 @@ func (p *PostgresRepository) GetGameByID(ctx context.Context, id int) (*Game, er
 
 func (p *PostgresRepository) GetGameByName(ctx context.Context, name string) (*Game, error) {
 	game := &Game{}
+	genre := &genre.Genre{}
 	err := p.pool.QueryRow(ctx, getGameByNameSQL, name).Scan(
-		&game.ID, &game.Name, &game.AvgRating, &game.ReviewsCount,
+		&game.ID,
+		&game.Name,
+		&game.AvgRating,
+		&game.ReviewsCount,
+		&game.Description,
+		&game.ImageURL,
+		&genre.ID,
 	)
+	game.Genre = *genre
 	if err != nil {
 		return nil, fmt.Errorf("GetGameByName: %w", err)
 	}
@@ -70,22 +85,22 @@ func (p *PostgresRepository) GetAllGames(ctx context.Context) ([]Game, error) {
 
 	var games []Game
 	for rows.Next() {
-		var g Game
+		var game Game
 		var genre genre.Genre
 		if err := rows.Scan(
-			&g.ID,
-			&g.Name,
-			&g.AvgRating,
-			&g.ReviewsCount,
-			&g.Description,
-			&g.ImageURL,
+			&game.ID,
+			&game.Name,
+			&game.AvgRating,
+			&game.ReviewsCount,
+			&game.Description,
+			&game.ImageURL,
 			&genre.ID,
 			&genre.Name,
 		); err != nil {
 			return nil, fmt.Errorf("GetAllGames Scan: %w", err)
 		}
-		g.Genre = genre
-		games = append(games, g)
+		game.Genre = genre
+		games = append(games, game)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("GetAllGames rows: %w", err)
@@ -94,7 +109,10 @@ func (p *PostgresRepository) GetAllGames(ctx context.Context) ([]Game, error) {
 }
 func (p *PostgresRepository) AddGame(ctx context.Context, game *Game) error {
 	_, err := p.pool.Exec(ctx, addGameSQL, game.Name, game.Description, game.ImageURL, game.Genre.ID)
-	return err
+	if err != nil {
+		return fmt.Errorf("AddGame: %w", err)
+	}
+	return nil
 }
 
 func (p *PostgresRepository) RemoveGameByID(ctx context.Context, id int) error {
