@@ -35,7 +35,7 @@ type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
 
-func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
+func NewPostgresRepository(pool *pgxpool.Pool) Repository {
 	return &PostgresRepository{pool: pool}
 }
 
