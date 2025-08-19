@@ -1,0 +1,1 @@
+SELECT id,name FROM USERS WHERE ID = $1

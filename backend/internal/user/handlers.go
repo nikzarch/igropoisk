@@ -31,7 +31,7 @@ func (r *Handler) HandleRegistration(c *gin.Context) {
 		return
 	}
 
-	token, err := r.service.Register(req.Username, req.Password)
+	token, err := r.service.Register(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -61,7 +61,7 @@ func (r *Handler) HandleLogin(c *gin.Context) {
 		return
 	}
 
-	token, err := r.service.Login(req.Username, req.Password)
+	token, err := r.service.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

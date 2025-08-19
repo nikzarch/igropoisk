@@ -1,0 +1,1 @@
+INSERT INTO users (name, password_hash) VALUES ($1, $2) RETURNING id, name

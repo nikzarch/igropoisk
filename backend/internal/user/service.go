@@ -1,14 +1,16 @@
 package user
 
 import (
+	"context"
 	"errors"
 	"golang.org/x/crypto/bcrypt"
 	"igropoisk_backend/internal/auth"
+	"igropoisk_backend/internal/logger"
 )
 
 type Service interface {
-	Register(name, password string) (token string, err error)
-	Login(name, password string) (token string, err error)
+	Register(ctx context.Context, name, password string) (token string, err error)
+	Login(ctx context.Context, name, password string) (token string, err error)
 }
 
 type service struct {
@@ -19,29 +21,53 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) Register(name, password string) (token string, err error) {
-	pass, hashErr := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if hashErr != nil {
-		return "", hashErr
+func (s *service) Register(ctx context.Context, name, password string) (token string, err error) {
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Logger.Error("Failed to hash password",
+			"username", name,
+			"error", err)
+		return "", errors.New("failed to hash password")
 	}
-	user, addErr := s.repo.AddUser(name, string(pass))
-	if addErr != nil {
-		return "", addErr
+	user, err := s.repo.AddUser(ctx, name, string(passwordHash))
+	if err != nil {
+		logger.Logger.Error("Failed to add user",
+			"username", name,
+			"error", err)
+		return "", errors.New("failed to add user")
 	}
-	token, err = auth.GenerateToken(user.Id, user.Name)
+	token, err = auth.GenerateToken(user.ID, user.Name)
+	if err != nil {
+		logger.Logger.Error("Failed to generate token",
+			"username", name,
+			"error", err)
+		return "", errors.New("failed to generate token")
+	}
 	return token, err
 }
 
-func (s *service) Login(name, password string) (token string, err error) {
-	user, err := s.repo.GetUserByName(name)
+func (s *service) Login(ctx context.Context, name, password string) (token string, err error) {
+	user, err := s.repo.GetUserByName(ctx, name)
 	if err != nil {
-		return "", err
+		logger.Logger.Error("Failed to get user by name",
+			"username", name,
+			"error", err)
+		return "", errors.New("failed to get user by name")
 	}
 
-	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		logger.Logger.Error("Invalid password",
+			"username", name,
+			"error", err)
 		return "", errors.New("invalid username or password")
 	}
 
-	token, err = auth.GenerateToken(user.Id, user.Name)
-	return token, err
+	token, err = auth.GenerateToken(user.ID, user.Name)
+	if err != nil {
+		logger.Logger.Error("Failed to generate token",
+			"username", name,
+			"error", err)
+		return "", errors.New("failed to generate token")
+	}
+	return token, nil
 }

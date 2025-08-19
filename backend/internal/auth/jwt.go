@@ -14,7 +14,7 @@ func Init() {
 }
 
 type Claims struct {
-	UserId   int    `json:"userId"`
+	UserID   int    `json:"userID"`
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }

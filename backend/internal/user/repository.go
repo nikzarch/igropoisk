@@ -1,60 +1,58 @@
 package user
 
 import (
-	"database/sql"
-	"errors"
-	"github.com/jackc/pgx/v5/pgconn"
+	"context"
+	_ "embed"
+	"fmt"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+//go:embed queries/add_user.sql
+var addUserSQL string
+
+//go:embed queries/get_user_by_id.sql
+var getUserByIDSQL string
+
+//go:embed queries/get_user_by_name.sql
+var getUserByNameSQL string
+
 type Repository interface {
-	AddUser(name, passwordHash string) (*User, error)
-	GetUserById(id int) (*User, error)
-	GetUserByName(name string) (*User, error)
+	AddUser(ctx context.Context, name, passwordHash string) (*User, error)
+	GetUserByID(ctx context.Context, id int) (*User, error)
+	GetUserByName(ctx context.Context, name string) (*User, error)
 }
 
-type postgresRepository struct {
-	db *sql.DB
+type PostgresRepository struct {
+	pool *pgxpool.Pool
 }
 
-func NewPostgresRepository(db *sql.DB) Repository {
-	return &postgresRepository{db: db}
+func NewPostgresRepository(pool *pgxpool.Pool) Repository {
+	return &PostgresRepository{pool: pool}
 }
 
-func (p *postgresRepository) GetUserById(id int) (*User, error) {
-	query := "SELECT id,name FROM USERS WHERE ID = $1"
-	user := &User{}
-	row := p.db.QueryRow(query, id)
-	err := row.Scan(&user.Id, &user.Name)
-	return user, err
-}
-
-func (p *postgresRepository) AddUser(name, passwordHash string) (*User, error) {
-	query := "INSERT INTO users (name, password_hash) VALUES ($1, $2) RETURNING id, name"
+func (p *PostgresRepository) AddUser(ctx context.Context, name, passwordHash string) (*User, error) {
 	user := User{}
-	err := p.db.QueryRow(query, name, passwordHash).
-		Scan(&user.Id, &user.Name)
+	err := p.pool.QueryRow(ctx, addUserSQL, name, passwordHash).Scan(&user.ID, &user.Name)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			if pgErr.Code == "23505" {
-				return nil, errors.New("user already exists")
-			}
-		}
-		return nil, err
+		return nil, fmt.Errorf("AddUser : %w", err)
 	}
 	return &user, nil
 }
 
-func (p *postgresRepository) GetUserByName(name string) (*User, error) {
-	query := "SELECT id, name, password_hash FROM users WHERE name = $1"
+func (p *PostgresRepository) GetUserByID(ctx context.Context, id int) (*User, error) {
 	user := &User{}
-	row := p.db.QueryRow(query, name)
-	err := row.Scan(&user.Id, &user.Name, &user.PasswordHash)
+	err := p.pool.QueryRow(ctx, getUserByIDSQL, id).Scan(&user.ID, &user.Name)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("no such user")
-		}
-		return nil, err
+		return nil, fmt.Errorf("GetUserByID : %w", err)
+	}
+	return user, nil
+}
+
+func (p *PostgresRepository) GetUserByName(ctx context.Context, name string) (*User, error) {
+	user := &User{}
+	err := p.pool.QueryRow(ctx, getUserByNameSQL, name).Scan(&user.ID, &user.Name, &user.PasswordHash)
+	if err != nil {
+		return nil, fmt.Errorf("GetUserByName : %w", err)
 	}
 	return user, nil
 }
