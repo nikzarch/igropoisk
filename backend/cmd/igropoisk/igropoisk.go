@@ -3,43 +3,42 @@ package main
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"igropoisk_backend/internal/auth"
-	"igropoisk_backend/internal/db"
+	"igropoisk_backend/internal/db/postgres"
 	"igropoisk_backend/internal/game"
+	"igropoisk_backend/internal/game/genre"
+	"igropoisk_backend/internal/logger"
 	"igropoisk_backend/internal/middleware"
 	"igropoisk_backend/internal/review"
 	"igropoisk_backend/internal/user"
-	"io"
 	"log"
 	"os"
 )
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalln("Error loading .env file")
-	}
 	auth.Init()
-	db := db.GetConnection()
-	defer db.Close()
+	postgresPool := postgres.GetPool()
+	defer postgresPool.Close()
 
-	userRepo := user.NewPostgresRepository(db)
+	userRepo := user.NewPostgresRepository(postgresPool)
 	userService := user.NewService(userRepo)
 	userHandler := user.NewHandler(userService)
 
-	gameRepo := game.NewPostgresRepository(db)
-	gameService := game.NewService(gameRepo)
+	gameRepo := game.NewPostgresRepository(postgresPool)
+	genreRepo := genre.NewPostgresRepository(postgresPool)
+	gameService := game.NewService(gameRepo, genreRepo)
 	gameHandler := game.NewHandler(gameService)
 
-	reviewRepo := review.NewPostgresRepository(db)
+	reviewRepo := review.NewPostgresRepository(postgresPool)
 	reviewService := review.NewService(reviewRepo, gameService)
 	reviewHandler := review.NewHandler(reviewService)
 	r := gin.New()
-	f, _ := os.Create("log.txt")
-	defer f.Close()
-	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
-	r.Use(gin.LoggerWithWriter(gin.DefaultWriter))
+	err := logger.InitLogger()
+	defer logger.CloseFile()
+	if err != nil {
+		log.Printf("failed to init logger : %s\n", err.Error())
+	}
+	r.Use(logger.SlogMiddleware())
 	r.Use(gin.Recovery())
 	r.Use(cors.Default()) //temp
 
@@ -47,7 +46,7 @@ func main() {
 	{
 		api.POST("register", userHandler.HandleRegistration)
 		api.POST("login", userHandler.HandleLogin)
-		api.GET("games/:id/reviews", reviewHandler.GetReviewsByGameId)
+		api.GET("games/:id/reviews", reviewHandler.GetReviewsByGameID)
 	}
 	authorizedApi := r.Group("api", middleware.AuthMiddleware())
 	{
@@ -59,5 +58,5 @@ func main() {
 		authorizedApi.POST("games/:id/reviews", reviewHandler.AddReview)
 	}
 
-	r.Run("localhost:" + os.Getenv("PORT"))
+	r.Run(":" + os.Getenv("PORT"))
 }
