@@ -16,7 +16,7 @@ var getGenreByNameSQL string
 var addGenreSQL string
 
 type Repository interface {
-	GetGenreById(ctx context.Context, id int) (*Genre, error)
+	GetGenreByID(ctx context.Context, id int) (*Genre, error)
 	GetGenreByName(ctx context.Context, name string) (*Genre, error)
 	AddGenre(ctx context.Context, name string) (*Genre, error)
 }
@@ -29,7 +29,7 @@ func NewPostgresRepository(pool *pgxpool.Pool) Repository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (p *PostgresRepository) GetGenreById(ctx context.Context, id int) (*Genre, error) {
+func (p *PostgresRepository) GetGenreByID(ctx context.Context, id int) (*Genre, error) {
 	var g Genre
 	err := p.pool.QueryRow(ctx, getGenreByIDSQL, id).Scan(&g.ID, &g.Name)
 	return &g, err
