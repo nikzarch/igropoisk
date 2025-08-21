@@ -17,14 +17,16 @@ type Service interface {
 	GetGameByID(ctx context.Context, id int) (*Game, error)
 	GetGameByName(ctx context.Context, name string) (*Game, error)
 	GetAllGames(ctx context.Context) ([]Game, error)
+	SearchGames(ctx context.Context, query string) ([]Game, error)
 }
 type service struct {
-	gameRepo  Repository
-	genreRepo genre.Repository
+	gameRepo   Repository
+	genreRepo  genre.Repository
+	searchRepo SearchRepository
 }
 
-func NewService(gameRepo Repository, genreRepo genre.Repository) Service {
-	return &service{gameRepo: gameRepo, genreRepo: genreRepo}
+func NewService(gameRepo Repository, genreRepo genre.Repository, searchRepo SearchRepository) Service {
+	return &service{gameRepo: gameRepo, genreRepo: genreRepo, searchRepo: searchRepo}
 }
 
 func validateGame(game Game) (bool, error) {
@@ -90,7 +92,13 @@ func (s *service) AddGame(ctx context.Context, request AddGameRequest) error {
 			"user_id", ctx.Value(middleware.UserIDKey),
 			"error", err,
 		)
-		return errors.New("Failed to add a new game")
+		return errors.New("failed to add a new game")
+	}
+	if err := s.searchRepo.IndexGame(ctx, &game); err != nil {
+		logger.Logger.Warn("Failed to add a new game to search repo",
+			"game_id", game.ID,
+			"user_id", ctx.Value(middleware.UserIDKey),
+			"error", err)
 	}
 	return nil
 }
@@ -112,6 +120,13 @@ func (s *service) DeleteGameByID(ctx context.Context, id int) error {
 			"error", err,
 		)
 		return errors.New("failed to remove a game")
+	}
+
+	if err := s.searchRepo.DeleteGame(ctx, id); err != nil {
+		logger.Logger.Error("Failed to remove a game",
+			"game_id", id,
+			"user_id", ctx.Value(middleware.UserIDKey),
+			"error", err)
 	}
 	return nil
 }
@@ -146,7 +161,7 @@ func (s *service) GetGameByName(ctx context.Context, name string) (*Game, error)
 		logger.Logger.Error("Failed to get a game",
 			"game_name", name,
 			"error", err)
-		return nil, errors.New("Failed to get a game")
+		return nil, errors.New("failed to get a game")
 	}
 	return game, nil
 }
@@ -157,7 +172,19 @@ func (s *service) GetAllGames(ctx context.Context) ([]Game, error) {
 		logger.Logger.Error("Failed to get all games",
 			"user_id", ctx.Value(middleware.UserIDKey),
 			"error", err)
-		return nil, errors.New("Failed to get all games")
+		return nil, errors.New("failed to get all games")
+	}
+	return games, nil
+}
+
+func (s *service) SearchGames(ctx context.Context, query string) ([]Game, error) {
+	games, err := s.searchRepo.SearchGames(ctx, query)
+	if err != nil {
+		logger.Logger.Error("Failed to search games",
+			"user_id", ctx.Value(middleware.UserIDKey),
+			"query", query,
+			"error", err)
+		return nil, errors.New("failed to search games")
 	}
 	return games, nil
 }

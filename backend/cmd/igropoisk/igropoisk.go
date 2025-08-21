@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"igropoisk_backend/internal/auth"
+	"igropoisk_backend/internal/db/elastic"
 	"igropoisk_backend/internal/db/postgres"
 	"igropoisk_backend/internal/game"
 	"igropoisk_backend/internal/game/genre"
@@ -18,6 +20,7 @@ import (
 func main() {
 	auth.Init()
 	postgresPool := postgres.GetPool()
+	elasticClient := elastic.NewClient()
 	defer postgresPool.Close()
 
 	userRepo := user.NewPostgresRepository(postgresPool)
@@ -26,7 +29,9 @@ func main() {
 
 	gameRepo := game.NewPostgresRepository(postgresPool)
 	genreRepo := genre.NewPostgresRepository(postgresPool)
-	gameService := game.NewService(gameRepo, genreRepo)
+	searchRepo := game.NewElasticRepository(elasticClient)
+
+	gameService := game.NewService(gameRepo, genreRepo, searchRepo)
 	gameHandler := game.NewHandler(gameService)
 
 	reviewRepo := review.NewPostgresRepository(postgresPool)
@@ -37,6 +42,11 @@ func main() {
 	defer logger.CloseFile()
 	if err != nil {
 		log.Printf("failed to init logger : %s\n", err.Error())
+	}
+	err = searchRepo.SyncWith(context.Background(), gameRepo)
+	if err != nil {
+		logger.Logger.Error("Unable to sync elastic with TS",
+			"error", err)
 	}
 	r.Use(logger.SlogMiddleware())
 	r.Use(gin.Recovery())
@@ -50,6 +60,7 @@ func main() {
 	}
 	authorizedApi := r.Group("api", middleware.AuthMiddleware())
 	{
+		authorizedApi.GET("games/search", gameHandler.SearchGame)
 		authorizedApi.GET("games/:id", gameHandler.GetGameByID)
 		authorizedApi.GET("games", gameHandler.GetAllGames)
 		authorizedApi.POST("games", gameHandler.AddGame)
